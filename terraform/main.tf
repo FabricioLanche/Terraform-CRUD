@@ -1,14 +1,17 @@
-# Data sources para obtener la AMI más reciente y VPC por defecto
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
 }
 
+provider "aws" {
+  region = var.aws_region
+}
+
+# --- VPC y subnets (usa la default para simplificar) ---
 data "aws_vpc" "default" {
   default = true
 }
@@ -20,22 +23,15 @@ data "aws_subnets" "default" {
   }
 }
 
-resource "aws_security_group" "fastapi_sg" {
-  name_prefix = "fastapi-sg-"
+# --- Security Group para permitir tráfico HTTP ---
+resource "aws_security_group" "crud_sg" {
+  name        = "crud-sg"
+  description = "Allow HTTP traffic"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "FastAPI Port"
     from_port   = 8000
     to_port     = 8000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -46,31 +42,56 @@ resource "aws_security_group" "fastapi_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = {
-    Name = "fastapi-security-group"
-  }
 }
 
-resource "aws_instance" "fastapi_instance" {
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = var.instance_type
+# --- ECS Cluster ---
+resource "aws_ecs_cluster" "crud_cluster" {
+  name = "crud-cluster"
+}
 
-  vpc_security_group_ids = [aws_security_group.fastapi_sg.id]
-  subnet_id              = data.aws_subnets.default.ids[0]
+# --- Task Definition ---
+resource "aws_ecs_task_definition" "crud_task" {
+  family                   = "crud-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = var.labrole_arn
+  task_role_arn            = var.labrole_arn
 
-  key_name = var.key_pair_name
+  container_definitions = jsonencode([
+    {
+      name      = "crud-app"
+      image     = var.app_image
+      essential = true
+      portMappings = [
+        {
+          containerPort = 8000
+          hostPort      = 8000
+        }
+      ]
+    }
+  ])
+}
 
-  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    docker_image = "raczaz/terraform-crud:${var.image_tag}"
-    app_port     = 8000
-  }))
+# --- ECS Service ---
+resource "aws_ecs_service" "crud_service" {
+  name            = "crud-service"
+  cluster         = aws_ecs_cluster.crud_cluster.id
+  task_definition = aws_ecs_task_definition.crud_task.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
 
-  tags = {
-    Name = var.instance_name
+  network_configuration {
+    subnets          = data.aws_subnets.default.ids
+    security_groups  = [aws_security_group.crud_sg.id]
+    assign_public_ip = true
   }
 
-  lifecycle {
-    create_before_destroy = true
-  }
+  depends_on = [aws_ecs_task_definition.crud_task]
+}
+
+# --- Output de la URL pública ---
+output "service_name" {
+  value = aws_ecs_service.crud_service.name
 }

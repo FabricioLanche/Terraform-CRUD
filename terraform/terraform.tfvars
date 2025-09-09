@@ -1,16 +1,7 @@
-aws_region     = "us-east-1"
-aws_account_id = "478701513931"
+aws_region = "us-east-1"
 
-image_tag = "latest"
+# Docjker image
+app_image  = "docker.io/usuario/fastapi-sqlite-crud:latest"
 
-ecs_cluster_name = "fastapi-sqlite-cluster"
-ecs_service_name = "fastapi-sqlite-service"
-
-subnet_ids = [
-  "subnet-1234567890abcdef0",
-  "subnet-0abcdef1234567890"
-]
-
-security_group_ids = [
-  "sg-1234567890abcdef0"
-]
+# Account_id
+labrole_arn = "arn:aws:iam::123456789012:role/LabRole"

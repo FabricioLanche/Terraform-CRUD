@@ -1,0 +1,34 @@
+# Virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files
+terraform/.env
+*.env
+
+# VS Code settings
+.vscode/
+
+# Mac OS metadata
+.DS_Store
+
+# Docker artifacts (optional, if you build local images)
+*.log
+
+# Ignore test coverage, if used
+htmlcov/
+coverage.xml
+*.cover
+
+# Ignore pip wheel files, if generated
+*.whl
+
+# Ignore local Terraform state files (if applicable)
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.*

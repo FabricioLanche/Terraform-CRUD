@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import sqlite3
 
-from database import init_db, EstudianteDB
+from app.database import init_db, EstudianteDB
 app = FastAPI(title="CRUD Estudiantes", version="1.0.0")
 
 class EstudianteBase(BaseModel):
@@ -22,8 +22,12 @@ class EstudianteUpdate(BaseModel):
     email: Optional[str] = None
     edad: Optional[int] = None
 
-class Estudiante(EstudianteBase):
+class Estudiante(BaseModel):
     id: int
+    nombre: str
+    apellido: str
+    email: str
+    edad: int
 
     class Config:
         from_attributes = True
@@ -68,6 +72,7 @@ async def actualizar_estudiante(estudiante_id: int, estudiante: EstudianteUpdate
         return resultado
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
+
 @app.delete("/estudiantes/{estudiante_id}")
 async def eliminar_estudiante(estudiante_id: int):
     """Eliminar un estudiante"""
